@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D ECU Tables Visualization</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-3.1.0.min.js" charset="utf-8"></script>
+    <style>
+        .form-container {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .data-input {
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .plot-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .color-scale-info {
+            background: linear-gradient(90deg, #9400D3, #4B0082, #0000FF, #00FF00, #FFFF00, #FF7F00, #FF0000);
+            height: 30px;
+            border-radius: 5px;
+            margin: 10px 0;
+            position: relative;
+        }
+                         .color-scale-info::before {
+            content: attr(data-min);
+            position: absolute;
+            left: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(128, 128, 128, 0.9);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            font-family: monospace;
+        }
+        
+        .color-scale-info::after {
+            content: attr(data-max);
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(128, 128, 128, 0.9);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            font-family: monospace;
+        }
+         
+         /* Styles for data cells - fixing color filling */
+         .table-cell {
+             padding: 0px;
+             text-align: center;
+             font-family: monospace;
+             font-size: 12px;
+             border: none;
+             min-width: 6px;
+             height: 8px;
+             box-sizing: border-box;
+             line-height: 1;
+         }
+         
+         .table-cell:focus {
+             outline: 1px solid #007bff;
+             outline-offset: -1px;
+         }
+         
+         /* Styles for table headers */
+         .table-header {
+             background-color: rgba(248, 249, 250, 0.8) !important;
+             font-weight: bold !important;
+             text-align: center !important;
+             padding: 2px !important;
+             border: none !important;
+             min-width: 16px;
+             height: auto !important;
+             box-sizing: border-box;
+             line-height: 1.2 !important;
+             font-size: 12px !important;
+             color: #000 !important;
+         }
+         
+         /* Simple and effective table styles */
+        #editableTable {
+            border-collapse: collapse;
+            width: auto;
+            margin: 0 auto;
+        }
+        
+        #editableTable th,
+        #editableTable td {
+            border: 1px solid #dee2e6;
+            padding: 2px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        /* Table headers */
+        #editableTable th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            font-size: 12px;
+            min-width: 50px;
+            height: 30px;
+        }
+        
+        /* Data cells */
+        #editableTable td {
+            min-width: 40px;
+            height: 25px;
+            position: relative;
+        }
+        
+        /* Input fields in cells */
+        #editableTable input[type="text"] {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            text-align: center;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+            background: transparent;
+        }
+        
+        /* When input field is focused */
+        #editableTable input[type="text"]:focus {
+            outline: 2px solid #007bff;
+            outline-offset: -2px;
+        }
+        
+        /* Remove all Bootstrap styles */
+        #editableTable.table,
+        #editableTable.table-sm,
+        #editableTable.table-bordered {
+            border: none;
+        }
+        
+        #editableTable.table td,
+        #editableTable.table th {
+            border: 1px solid #dee2e6;
+        }
+        
+        /* CSS variables for color filling */
+        #editableTable input[type="text"] {
+            background-color: var(--bg-color, transparent) !important;
+            color: var(--text-color, black) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <h1 class="text-center mb-4">3D ECU Tables Visualization</h1>
+        
+                                   <div class="row">
+              <div class="col-md-6">
+                  <div class="form-container">
+                     <div class="mb-3">
+                         <label for="xAxis" class="form-label">X Axis (space separated):</label>
+                         <input type="text" class="form-control data-input" id="xAxis" 
+                                placeholder="0 5 10 15 20 25 30 35 40 45 50" 
+                                value="0 5 10 15 20 25 30 35 40 45 50">
+                     </div>
+                                           <div class="mb-3">
+                          <label for="yAxis" class="form-label">Y Axis (space separated):</label>
+                          <div class="d-flex align-items-center gap-2">
+                              <input type="text" class="form-control data-input" id="yAxis" 
+                                     placeholder="10 50 75 100 200 300" 
+                                     value="10 50 75 100 200 300">
+                              <div class="form-check mb-0">
+                                  <input class="form-check-input" type="checkbox" id="invertYAxis">
+                                  <label class="form-check-label" for="invertYAxis" style="font-size: 12px;">
+                                      Inv. Y
+                                  </label>
+                              </div>
+                          </div>
+                      </div>
+                                           <div class="mb-3">
+                          <label for="dataTable" class="form-label">Data table (each row separated by Enter):</label>
+                          <textarea class="form-control data-input" id="dataTable" rows="6" 
+                                    placeholder="1 1.2 1.6 1.9 2.2 2.5 2.36 2.22 2.08 1.94 1.8&#10;1 1.27 1.54 1.81 2.08 2.36 2.23 2.1 1.97 1.84 1.72&#10;1 1.24 1.48 1.73 1.97 2.22 2.1 1.98 1.87 1.75 1.64&#10;1 1.21 1.43 1.64 1.86 2.08 1.97 1.87 1.76 1.66 1.56&#10;1 1.18 1.37 1.56 1.75 1.94 1.84 1.75 1.66 1.57 1.48&#10;1 1.16 1.32 1.48 1.64 1.8 1.72 1.64 1.56 1.48 1.4">1 1.2 1.6 1.9 2.2 2.5 2.36 2.22 2.08 1.94 1.8
+ 1 1.27 1.54 1.81 2.08 2.36 2.23 2.1 1.97 1.84 1.72
+ 1 1.24 1.48 1.73 1.97 2.22 2.1 1.98 1.87 1.75 1.64
+ 1 1.21 1.43 1.64 1.86 2.08 1.97 1.87 1.76 1.66 1.56
+ 1 1.18 1.37 1.56 1.75 1.94 1.84 1.75 1.66 1.57 1.48
+ 1 1.16 1.32 1.48 1.64 1.8 1.72 1.64 1.56 1.48 1.4</textarea>
+                      </div>
+                      
+                                             <div class="mb-3">
+                           <div class="d-flex gap-2">
+                               <button class="btn btn-outline-primary" onclick="convertToTable()">
+                                   Convert to Table
+                               </button>
+                               <button class="btn btn-outline-secondary" onclick="convertToText()">
+                                   Convert to Text
+                               </button>
+                               <button class="btn btn-primary" onclick="generate3DPlot()">
+                                   Generate 3D Plot
+                               </button>
+                           </div>
+                       </div>
+                       
+                                              <div class="mb-3" id="tableContainer" style="display: none;">
+                           <label class="form-label">Editable data table:</label>
+                           <small class="text-muted d-block mb-2">X-axis in left column, Y-axis in header</small>
+                           <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                               <table id="editableTable">
+                                   <thead id="tableHeader"></thead>
+                                   <tbody id="tableBody"></tbody>
+                               </table>
+                           </div>
+                       </div>
+                       
+                      <div class="color-scale-info"></div>
+                 </div>
+             </div>
+             
+                           <div class="col-md-6">
+                  <div class="plot-container">
+                     <div id="3dPlot" style="width: 100%; height: 600px;"></div>
+                 </div>
+             </div>
+         </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function generate3DPlot() {
+            try {
+                                 // Parsing X and Y axes
+                 const xAxis = document.getElementById('xAxis').value.trim().split(/\s+/).map(Number);
+                 const yAxis = document.getElementById('yAxis').value.trim().split(/\s+/).map(Number);
+                 console.log(xAxis);
+                 console.log(yAxis);
+                
+                                 // Parsing data table
+                 const dataTableText = document.getElementById('dataTable').value.trim();
+                 const dataRows = dataTableText.split('\n').filter(row => row.trim());
+                 const dataTable = dataRows.map(row => 
+                     row.trim().split(/\s+/).map(Number)
+                 );
+                
+                                 // Size validation
+                 if (xAxis.length !== dataTable[0].length) {
+                     alert(`Error: number of X-axis values (${xAxis.length}) does not match number of columns in data (${dataTable[0].length})`);
+                     return;
+                 }
+                 
+                 if (yAxis.length !== dataTable.length) {
+                     alert(`Error: number of Y-axis values (${yAxis.length}) does not match number of rows in data (${dataTable.length})`);
+                     return;
+                 }
+                
+                // Creating grid for 3D plot
+                const xGrid = [];
+                const yGrid = [];
+                const zGrid = [];
+                
+                for (let i = 0; i < yAxis.length; i++) {
+                    for (let j = 0; j < xAxis.length; j++) {
+                        xGrid.push(xAxis[j]);
+                        yGrid.push(yAxis[i]);
+                        zGrid.push(dataTable[i][j]);
+                    }
+                }
+                
+                // Finding minimum and maximum for color scale
+                const zMin = Math.min(...zGrid);
+                const zMax = Math.max(...zGrid);
+                
+                                 // Creating 3D surface
+                 const data = [{
+                     type: 'surface',
+                     x: xAxis,
+                     y: yAxis,
+                     z: dataTable,
+                     colorscale: [
+                         [0, '#9400D3'],    // Purple (minimum)
+                         [0.17, '#4B0082'], // Indigo
+                         [0.33, '#0000FF'], // Blue
+                         [0.5, '#00FF00'],  // Green
+                         [0.67, '#FFFF00'], // Yellow
+                         [0.83, '#FF7F00'], // Orange
+                         [1, '#FF0000']     // Red (maximum)
+                     ],
+                     cmin: zMin,
+                     cmax: zMax,
+                     showscale: true,
+                     colorbar: {
+                         title: 'Value',
+                         titleside: 'right'
+                     },
+                     contours: {
+                         x: {
+                             show: true,
+                             color: '#333',
+                             width: 1,
+                             highlight: false
+                         },
+                         y: {
+                             show: true,
+                             color: '#333',
+                             width: 1,
+                             highlight: false
+                         }
+                     },
+                     opacity: 0.9
+                 }];
+                
+                // Layout settings
+                const layout = {
+                    title: '3D ECU Table Surface',
+                                         scene: {
+                         xaxis: {
+                             title: 'X Axis',
+                             showgrid: true,
+                             gridcolor: '#E5E5E5',
+                             gridwidth: 1,
+                             autorange: 'reversed',
+                             tickmode: 'array',
+                             tickvals: xAxis,
+                             ticktext: xAxis.map(String)
+                         },
+                                                   yaxis: {
+                              title: 'Y Axis',
+                              showgrid: true,
+                              gridcolor: '#E5E5E5',
+                              gridwidth: 1,
+                              tickmode: 'array',
+                              tickvals: yAxis,
+                              ticktext: yAxis.map(String),
+                              autorange: document.getElementById('invertYAxis').checked ? 'reversed' : undefined
+                          },
+                         zaxis: {
+                             title: 'Value',
+                             showgrid: true,
+                             gridcolor: '#E5E5E5',
+                             gridwidth: 1,
+                             tickmode: 'auto',
+                             nticks: 10
+                         },
+                                                   camera: {
+                              eye: {x: 1.0, y: 1.0, z: 1}
+                          },
+                         aspectmode: 'manual',
+                         aspectratio: {x: 1, y: 0.5, z: 0.5}
+                     },
+                    width: document.getElementById('3dPlot').offsetWidth,
+                    height: 600,
+                    margin: {l: 0, r: 0, b: 0, t: 50}
+                };
+                
+                // Drawing the plot
+                Plotly.newPlot('3dPlot', data, layout, {
+                    responsive: true,
+                    displayModeBar: true,
+                    modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d']
+                });
+                
+                                 // Adding data information
+                 console.log('Data successfully loaded:');
+                 console.log('X:', xAxis);
+                 console.log('Y:', yAxis);
+                 console.log('Z:', dataTable);
+                 console.log('Value range:', zMin, 'to', zMax);
+                 
+                 // Update color scale with real values
+                 const colorScaleInfo = document.querySelector('.color-scale-info');
+                 if (colorScaleInfo) {
+                     colorScaleInfo.setAttribute('data-min', zMin.toFixed(2));
+                     colorScaleInfo.setAttribute('data-max', zMax.toFixed(2));
+                 }
+                
+            } catch (error) {
+                alert('Error generating plot: ' + error.message);
+                console.error('Error:', error);
+            }
+        }
+        
+                 // Function to convert text to table
+         function convertToTable() {
+             try {
+                 const xAxis = document.getElementById('xAxis').value.trim().split(/\s+/).map(Number);
+                 const yAxis = document.getElementById('yAxis').value.trim().split(/\s+/).map(Number);
+                 const dataTableText = document.getElementById('dataTable').value.trim();
+                 const dataRows = dataTableText.split('\n').filter(row => row.trim());
+                 const dataTable = dataRows.map(row => 
+                     row.trim().split(/\s+/).map(Number)
+                 );
+                 
+                 if (xAxis.length !== dataTable[0].length || yAxis.length !== dataTable.length) {
+                     alert('Error: data dimensions do not match X and Y axes');
+                     return;
+                 }
+                 
+                 createEditableTable(xAxis, yAxis, dataTable);
+                 document.getElementById('tableContainer').style.display = 'block';
+                 
+             } catch (error) {
+                 alert('Error creating table: ' + error.message);
+             }
+         }
+         
+                   // Function to create editable table
+          function createEditableTable(xAxis, yAxis, dataTable) {
+              const header = document.getElementById('tableHeader');
+              const body = document.getElementById('tableBody');
+              
+              console.log('Creating table:');
+              console.log('X-axis:', xAxis);
+              console.log('Y-axis:', yAxis);
+              console.log('Data:', dataTable);
+              
+                             // Clear existing header
+               header.innerHTML = '';
+               
+               // Creating table header (X-axis horizontally)
+               const headerRow = document.createElement('tr');
+               headerRow.innerHTML = '<th class="table-header">Y\\X</th>';
+               xAxis.forEach(x => {
+                   const th = document.createElement('th');
+                   th.className = 'table-header';
+                   th.textContent = x;
+                   headerRow.appendChild(th);
+               });
+               header.appendChild(headerRow);
+               
+               console.log('Header created:', header.innerHTML);
+               
+                               // Creating table body (Y-axis vertically)
+                body.innerHTML = '';
+                
+                // Determine Y-axis order based on checkbox
+                const yAxisOrder = document.getElementById('invertYAxis').checked ? 
+                    [...yAxis].reverse() : yAxis;
+                
+                yAxisOrder.forEach((y, displayIndex) => {
+                    const row = document.createElement('tr');
+                    
+                    // First cell - Y-axis
+                    const yCell = document.createElement('td');
+                    yCell.className = 'table-header';
+                    yCell.textContent = y;
+                    row.appendChild(yCell);
+                    
+                    // Find real index in dataTable
+                    const realIndex = yAxis.indexOf(y);
+                    
+                    // For each Y row, take corresponding values from dataTable
+                    for (let j = 0; j < xAxis.length; j++) {
+                        const cell = document.createElement('td');
+                        cell.className = 'table-cell';
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = dataTable[realIndex][j]; // dataTable[realIndex][j] - real row (Y), j-th column (X)
+                        input.dataset.row = realIndex;
+                        input.dataset.col = j;
+                        
+                        // Apply color highlighting
+                        applyCellColor(input, dataTable[realIndex][j], xAxis, yAxis, dataTable);
+                        
+                        // Force apply styles through CSS variables
+                        input.style.setProperty('--bg-color', input.style.backgroundColor, 'important');
+                        input.style.setProperty('--text-color', input.style.color, 'important');
+                        
+                        // Value change handler
+                        input.addEventListener('input', function() {
+                            const newValue = parseFloat(this.value) || 0;
+                            dataTable[realIndex][j] = newValue; // Update dataTable[realIndex][j]
+                            applyCellColor(this, newValue, xAxis, yAxis, dataTable);
+                            
+                            // Update text area
+                            updateTextArea(dataTable);
+                        });
+                        
+                        cell.appendChild(input);
+                        row.appendChild(cell);
+                    }
+                    
+                    body.appendChild(row);
+                });
+              
+              console.log('Table body created:', body.innerHTML);
+              console.log('Complete table:', document.getElementById('editableTable').outerHTML);
+          }
+         
+                              // Function to apply cell color highlighting
+           function applyCellColor(input, value, xAxis, yAxis, dataTable) {
+               const allValues = dataTable.flat();
+               const min = Math.min(...allValues);
+               const max = Math.max(...allValues);
+               
+               console.log('applyCellColor:', { value, min, max, input: input });
+               
+               if (min === max) {
+                   input.style.backgroundColor = '#9400D3';
+                   input.style.color = 'white';
+                   console.log('Applied color for identical values:', input.style.backgroundColor);
+                   return;
+               }
+               
+               const normalized = (value - min) / (max - min);
+               
+               // Smooth rainbow gradient with interpolation
+               let r, g, b;
+               
+               if (normalized <= 0.2) {
+                   // Purple to blue
+                   const t = normalized / 0.2;
+                   r = Math.round(148 + (0 - 148) * t);
+                   g = Math.round(0 + (0 - 0) * t);
+                   b = Math.round(211 + (255 - 211) * t);
+               } else if (normalized <= 0.4) {
+                   // Blue to green
+                   const t = (normalized - 0.2) / 0.2;
+                   r = Math.round(0 + (0 - 0) * t);
+                   g = Math.round(0 + (255 - 0) * t);
+                   b = Math.round(255 + (0 - 255) * t);
+               } else if (normalized <= 0.6) {
+                   // Green to yellow
+                   const t = (normalized - 0.4) / 0.2;
+                   r = Math.round(0 + (255 - 0) * t);
+                   g = Math.round(255 + (255 - 255) * t);
+                   b = Math.round(0 + (0 - 0) * t);
+               } else if (normalized <= 0.8) {
+                   // Yellow to orange
+                   const t = (normalized - 0.6) / 0.2;
+                   r = Math.round(255 + (255 - 255) * t);
+                   g = Math.round(255 + (165 - 255) * t);
+                   b = Math.round(0 + (0 - 0) * t);
+               } else {
+                   // Orange to red
+                   const t = (normalized - 0.8) / 0.2;
+                   r = Math.round(255 + (255 - 255) * t);
+                   g = Math.round(165 + (0 - 165) * t);
+                   b = Math.round(0 + (0 - 0) * t);
+               }
+               
+               const color = `rgb(${r}, ${g}, ${b})`;
+               input.style.backgroundColor = color;
+               
+               // Automatic text color selection for better readability
+               const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+               input.style.color = brightness > 128 ? 'black' : 'white';
+               
+                               console.log('Applied color:', { normalized, color, textColor: input.style.color });
+                
+                // Update color scale with new values
+                const newMin = Math.min(...dataTable.flat());
+                const newMax = Math.max(...dataTable.flat());
+                const colorScaleInfo = document.querySelector('.color-scale-info');
+                if (colorScaleInfo) {
+                    colorScaleInfo.setAttribute('data-min', newMin.toFixed(2));
+                    colorScaleInfo.setAttribute('data-max', newMax.toFixed(2));
+                }
+           }
+         
+                   // Function to update text area
+          function updateTextArea(dataTable) {
+              const textArea = document.getElementById('dataTable');
+              // dataTable now has correct structure: [y][x]
+              textArea.value = dataTable.map(row => row.join('\t')).join('\n');
+          }
+         
+         // Function to convert table back to text
+         function convertToText() {
+             document.getElementById('tableContainer').style.display = 'none';
+         }
+         
+         // Automatic plot generation on page load
+         window.addEventListener('load', function() {
+             setTimeout(generate3DPlot, 500);
+         });
+        
+                 // Window resize handling
+         window.addEventListener('resize', function() {
+             const plotDiv = document.getElementById('3dPlot');
+             if (plotDiv.data) {
+                 Plotly.relayout(plotDiv, {
+                     width: plotDiv.offsetWidth
+                 });
+             }
+         });
+         
+         // Y-axis inversion checkbox change handler
+         document.getElementById('invertYAxis').addEventListener('change', function() {
+             // If table is already created, rebuild it
+             if (document.getElementById('tableContainer').style.display !== 'none') {
+                 convertToTable();
+             }
+         });
+    </script>
+</body>
+</html>
